@@ -5,7 +5,7 @@ import os
 load_dotenv()
 
 # Importing blueprints
-from user.interest_groups import interest_groups
+from api.user.interest_groups import interest_groups
 
 # Initialise App
 app = Flask(__name__)
