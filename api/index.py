@@ -10,7 +10,7 @@ from user.interest_groups import interest_groups
 # Initialise App
 app = Flask(__name__)
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-CORS(app, resources={r"/api/*": {"origins": "localhost:5173"}})
+CORS(app, resources={r"/api/*": {"origins": allowed_origins}})
 
 # Registering blueprints
 app.register_blueprint(interest_groups, url_prefix='/api/interest_groups')
