@@ -1,13 +1,7 @@
 from flask import Blueprint
 
-user = Blueprint('user', __name__)
+user = Blueprint("user", __name__)
 
 from api.user.interest_groups import interest_groups
 
-user_blueprints = [
-    interest_groups,
-]
-            
-for blueprint in user_blueprints:
-    user.register_blueprint(blueprint)
- 
+user.registerblueprint(interest_groups, url_prefix="/interest_groups")
