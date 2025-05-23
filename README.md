@@ -18,14 +18,14 @@
 # Todo List
 
 - [x] Create DB
-- [] Users API
-- [] Events API
-- [] RSVPs API
-- [] Interest Groups API
-- [] Locations API
-- [] Bookings API
-- [] Notifications API
-- [] Chats API
-- [] Messages API
-- [] Private Chats API
-- [] Admin API
+- [ ] Users API
+- [ ] Events API
+- [ ] RSVPs API
+- [ ] Interest Groups API
+- [ ] Locations API
+- [ ] Bookings API
+- [ ] Notifications API
+- [ ] Chats API
+- [ ] Messages API
+- [ ] Private Chats API
+- [ ] Admin API
