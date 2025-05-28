@@ -9,7 +9,7 @@ import os
 load_dotenv()
 connection_string = os.getenv("DATABASE_URL")
 
-user_auth = Blueprint("user_auth", __name__, url_prefix="/auth")
+user_auth = Blueprint("user_auth", __name__)
 
 
 @user_auth.route("/", methods=["POST"])
