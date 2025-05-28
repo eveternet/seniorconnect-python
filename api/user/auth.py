@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from dotenv import load_dotenv
 from psycopg2 import pool
 import psycopg
-from ..app import get_db_connection
+from ..index import get_db_connection
 import os
 
 
