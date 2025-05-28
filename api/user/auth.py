@@ -14,6 +14,7 @@ user_auth = Blueprint("user_auth", __name__)
 
 @user_auth.route("/", methods=["POST"])
 def authUser():
+    print("debugging line 1: function called")
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
@@ -25,6 +26,7 @@ def authUser():
     if phone.type != "string" or name.type != "string" or userid.type != "string":
         return jsonify({"error": "Invalid data type"}), 400
 
+    print("debugging line 2: got request")
     # Checking database if user exists
     conn = None
     cur = None
@@ -35,6 +37,7 @@ def authUser():
         check_sql = "SELECT * FROM users WHERE clerk_user_id = %s"
         cur.execute(check_sql, (clerk_user_id))
         existing_user_row = cur.fetchone()
+        print("debugging line 3: got row")
         if existing_user_row:
             return jsonify({"Success": "User already exists"}), 204
         else:
@@ -56,6 +59,7 @@ def authUser():
                 ),
                 201,
             )
+        print("debugging line 4: the rest")
     except psycopg.Error as e:
         if conn:
             conn.rollback()
