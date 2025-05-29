@@ -36,7 +36,7 @@ def authUser():
         conn = get_db_connection()
         cur = conn.cursor()
         check_sql = "SELECT * FROM users WHERE clerk_user_id = %s"
-        cur.execute(check_sql, (clerk_user_id))
+        cur.execute(check_sql, (userid))
         existing_user_row = cur.fetchone()
         print("debugging line 3: got row")
         if existing_user_row:
@@ -47,7 +47,7 @@ def authUser():
             VALUES (%s, %s, %s)
             RETURNING id;
             """
-            cur.execute(insert_sql, (clerk_user_id, name, phone, email))
+            cur.execute(insert_sql, (userid, name, phone, email))
             new_id = cur.fetchone()[0]
 
             return (
