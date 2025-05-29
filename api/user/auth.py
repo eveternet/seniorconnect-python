@@ -1,17 +1,3 @@
-from flask import Blueprint, jsonify, request
-from dotenv import load_dotenv
-from psycopg2 import pool
-import psycopg
-from api.database import get_db_connection
-import os
-
-
-load_dotenv()
-connection_string = os.getenv("DATABASE_URL")
-
-user_auth = Blueprint("user_auth", __name__)
-
-
 @user_auth.route("/", methods=["POST"])
 @user_auth.route("", methods=["POST"])
 def authUser():
@@ -29,16 +15,18 @@ def authUser():
         print("No data provided or JSON parse failed")
         return jsonify({"error": "No data provided"}), 400
 
-    phone = data.get("phone")
-    name = data.get("name")
+    # Get values from JSON
     clerk_user_id = data.get("clerk_user_id")
+    display_name = data.get("name")  # Map frontend "name" to "display_name"
+    phone_number = data.get("phone")  # Map frontend "phone" to "phone_number"
 
-    if not phone or not name or not clerk_user_id:
+    # Validate required fields
+    if not clerk_user_id or not display_name or not phone_number:
         return jsonify({"error": "Missing required fields"}), 400
     if (
-        not isinstance(phone, str)
-        or not isinstance(name, str)
-        or not isinstance(clerk_user_id, str)
+        not isinstance(clerk_user_id, str)
+        or not isinstance(display_name, str)
+        or not isinstance(phone_number, str)
     ):
         return jsonify({"error": "Invalid data type"}), 400
 
@@ -61,7 +49,7 @@ def authUser():
             VALUES (%s, %s, %s)
             RETURNING id;
             """
-            cur.execute(insert_sql, (clerk_user_id, name, phone))
+            cur.execute(insert_sql, (clerk_user_id, display_name, phone_number))
             new_id = cur.fetchone()[0]
             conn.commit()
             return (
