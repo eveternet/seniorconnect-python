@@ -13,6 +13,7 @@ user_auth = Blueprint("user_auth", __name__)
 
 
 @user_auth.route("/", methods=["POST"])
+@user_auth.route("", methods=["POST"])
 def authUser():
     print("debugging line 1: function called")
     data = request.get_json()
