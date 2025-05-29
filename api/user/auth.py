@@ -16,7 +16,18 @@ user_auth = Blueprint("user_auth", __name__)
 @user_auth.route("", methods=["POST"])
 def authUser():
     print("debugging line 1: function called")
-    data = request.get_json()
+    print("Headers:", dict(request.headers))
+    print("Data:", request.data)
+    print("Is JSON:", request.is_json)
+    try:
+        data = request.get_json(force=False, silent=False)
+    except Exception as e:
+        print("Error parsing JSON:", e)
+        return jsonify({"error": "Invalid JSON", "details": str(e)}), 400
+
+    if not data:
+        print("No data provided or JSON parse failed")
+        return jsonify({"error": "No data provided"}), 400
     if not data:
         return jsonify({"error": "No data provided"}), 400
     phone = data.get("phone")
