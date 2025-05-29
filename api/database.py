@@ -19,5 +19,4 @@ def get_db_connection():
         return conn
     except psycopg.Error as e:
         print(f"Error connecting to database: {e}")
-        # In a real app, you might log this error more formally
         raise

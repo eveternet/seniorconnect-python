@@ -28,18 +28,21 @@ def authUser():
     if not data:
         print("No data provided or JSON parse failed")
         return jsonify({"error": "No data provided"}), 400
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+
     phone = data.get("phone")
     name = data.get("name")
-    userid = data.get("clerk_user_id")
-    if not phone or not name or not userid:
+    clerk_user_id = data.get("clerk_user_id")
+
+    if not phone or not name or not clerk_user_id:
         return jsonify({"error": "Missing required fields"}), 400
-    if phone.type != "string" or name.type != "string" or userid.type != "string":
+    if (
+        not isinstance(phone, str)
+        or not isinstance(name, str)
+        or not isinstance(clerk_user_id, str)
+    ):
         return jsonify({"error": "Invalid data type"}), 400
 
     print("debugging line 2: got request")
-    # Checking database if user exists
     conn = None
     cur = None
 
@@ -47,20 +50,20 @@ def authUser():
         conn = get_db_connection()
         cur = conn.cursor()
         check_sql = "SELECT * FROM users WHERE clerk_user_id = %s"
-        cur.execute(check_sql, (userid))
+        cur.execute(check_sql, (clerk_user_id,))
         existing_user_row = cur.fetchone()
         print("debugging line 3: got row")
         if existing_user_row:
-            return jsonify({"Success": "User already exists"}), 204
+            return jsonify({"message": "User already exists"}), 200
         else:
             insert_sql = """
             INSERT INTO users (clerk_user_id, name, phone)
             VALUES (%s, %s, %s)
             RETURNING id;
             """
-            cur.execute(insert_sql, (userid, name, phone, email))
+            cur.execute(insert_sql, (clerk_user_id, name, phone))
             new_id = cur.fetchone()[0]
-
+            conn.commit()
             return (
                 jsonify(
                     {
@@ -71,7 +74,6 @@ def authUser():
                 ),
                 201,
             )
-        print("debugging line 4: the rest")
     except psycopg.Error as e:
         if conn:
             conn.rollback()
@@ -79,6 +81,6 @@ def authUser():
         return jsonify({"message": "An internal server error occurred"}), 500
     finally:
         if cur:
-            cur.close()  # Close cursor first
+            cur.close()
         if conn:
-            conn.close()  # Then close connection
+            conn.close()
