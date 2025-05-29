@@ -1,3 +1,17 @@
+from flask import Blueprint, jsonify, request
+from dotenv import load_dotenv
+from psycopg2 import pool
+import psycopg
+from api.database import get_db_connection
+import os
+
+
+load_dotenv()
+connection_string = os.getenv("DATABASE_URL")
+
+user_auth = Blueprint("user_auth", __name__)
+
+
 @user_auth.route("/", methods=["POST"])
 @user_auth.route("", methods=["POST"])
 def authUser():
