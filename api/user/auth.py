@@ -57,7 +57,7 @@ def authUser():
             return jsonify({"message": "User already exists"}), 200
         else:
             insert_sql = """
-            INSERT INTO users (clerk_user_id, name, phone)
+            INSERT INTO users (clerk_user_id, display_name, phone_number)
             VALUES (%s, %s, %s)
             RETURNING id;
             """
