@@ -77,3 +77,45 @@ def authUser():
             cur.close()
         if conn:
             conn.close()
+
+
+@user_auth.route("/isAdmin", methods=["POST"])
+def isAdmin():
+    try:
+        data = request.get_json(force=False, silent=False)
+    except Exception as e:
+        return jsonify({"error": "Invalid JSON", "details": str(e)}), 400
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    clerk_user_id = data.get("clerk_user_id")
+
+    if not clerk_user_id:
+        return jsonify({"error": "Missing required fields"}), 400
+    if not isinstance(clerk_user_id, str):
+        return jsonify({"error": "Invalid data type"}), 400
+
+    conn = None
+    cur = None
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        check_sql = "SELECT role FROM users WHERE clerk_user_id = %s"
+        cur.execute(check_sql, (clerk_user_id,))
+        row = cur.fetchone()
+        if row:
+            is_admin = row[0] == "Admin"
+            return jsonify({"is_admin": is_admin}), 200
+        else:
+            return jsonify({"is_admin": False}), 200
+    except psycopg.Error as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"message": "An internal server error occurred"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()

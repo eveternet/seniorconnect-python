@@ -1,4 +1,12 @@
 from flask import Blueprint, abort, jsonify, request
+from dotenv import load_dotenv
+from psycopg2 import pool
+import psycopg
+from api.database import get_db_connection
+import os
+
+load_dotenv()
+connection_string = os.getenv("DATABASE_URL")
 
 interest_groups = Blueprint("interest_groups", __name__)
 
