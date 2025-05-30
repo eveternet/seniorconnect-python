@@ -175,14 +175,27 @@ def leave(group_id):
             return jsonify({"error": "User does not exist"}), 404
         user_uuid = user_row[0]
 
-        # 2. Check group exists
-        cur.execute("SELECT id FROM interest_groups WHERE id = %s", (group_id,))
+        # 2. Check group exists and get creator_id
+        cur.execute(
+            "SELECT id, creator_id FROM interest_groups WHERE id = %s", (group_id,)
+        )
         group_row = cur.fetchone()
         if not group_row:
             return jsonify({"error": "Group does not exist"}), 404
-        group_uuid = group_row[0]
+        group_uuid, creator_uuid = group_row
 
-        # 3. Check if already a member
+        # 3. Prevent creator from leaving
+        if user_uuid == creator_uuid:
+            return (
+                jsonify(
+                    {
+                        "error": "Creators must transfer ownership before leaving the group."
+                    }
+                ),
+                403,
+            )
+
+        # 4. Check if already a member
         cur.execute(
             "SELECT id FROM group_memberships WHERE user_id = %s AND group_id = %s",
             (user_uuid, group_uuid),
@@ -190,7 +203,7 @@ def leave(group_id):
         if not cur.fetchone():
             return jsonify({"error": "User is not a member of this group"}), 409
 
-        # 4. Delete membership
+        # 5. Delete membership
         cur.execute(
             "DELETE FROM group_memberships WHERE user_id = %s AND group_id = %s",
             (user_uuid, group_uuid),
