@@ -64,7 +64,7 @@ def authUser():
             VALUES (%s, %s, %s)
             RETURNING id;
             """
-            cur.execute(insert_sql, (clerk_user_id, display_name, "+6581234567"))
+            cur.execute(insert_sql, (clerk_user_id, display_name, phone_number))
             new_id = cur.fetchone()[0]
             conn.commit()
             return (
