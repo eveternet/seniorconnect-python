@@ -33,6 +33,7 @@ def authUser():
     clerk_user_id = data.get("clerk_user_id")
     display_name = data.get("name")  # Map frontend "name" to "display_name"
     phone_number = data.get("phone")  # Map frontend "phone" to "phone_number"
+    print(phone_number)
 
     # Validate required fields
     if not clerk_user_id or not display_name or not phone_number:
@@ -63,7 +64,7 @@ def authUser():
             VALUES (%s, %s, %s)
             RETURNING id;
             """
-            cur.execute(insert_sql, (clerk_user_id, display_name, phone_number))
+            cur.execute(insert_sql, (clerk_user_id, display_name, "+6581234567"))
             new_id = cur.fetchone()[0]
             conn.commit()
             return (
