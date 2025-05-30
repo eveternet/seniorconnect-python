@@ -15,25 +15,18 @@ user_auth = Blueprint("user_auth", __name__)
 @user_auth.route("/", methods=["POST"])
 @user_auth.route("", methods=["POST"])
 def authUser():
-    print("debugging line 1: function called")
-    print("Headers:", dict(request.headers))
-    print("Data:", request.data)
-    print("Is JSON:", request.is_json)
     try:
         data = request.get_json(force=False, silent=False)
     except Exception as e:
-        print("Error parsing JSON:", e)
         return jsonify({"error": "Invalid JSON", "details": str(e)}), 400
 
     if not data:
-        print("No data provided or JSON parse failed")
         return jsonify({"error": "No data provided"}), 400
 
     # Get values from JSON
     clerk_user_id = data.get("clerk_user_id")
     display_name = data.get("name")  # Map frontend "name" to "display_name"
     phone_number = data.get("phone")  # Map frontend "phone" to "phone_number"
-    print(phone_number)
 
     # Validate required fields
     if not clerk_user_id or not display_name or not phone_number:
@@ -45,7 +38,6 @@ def authUser():
     ):
         return jsonify({"error": "Invalid data type"}), 400
 
-    print("debugging line 2: got request")
     conn = None
     cur = None
 
@@ -55,7 +47,6 @@ def authUser():
         check_sql = "SELECT * FROM users WHERE clerk_user_id = %s"
         cur.execute(check_sql, (clerk_user_id,))
         existing_user_row = cur.fetchone()
-        print("debugging line 3: got row")
         if existing_user_row:
             return jsonify({"message": "User already exists"}), 200
         else:
@@ -80,7 +71,6 @@ def authUser():
     except psycopg.Error as e:
         if conn:
             conn.rollback()
-        print(f"Database error during onboarding: {e}")
         return jsonify({"message": "An internal server error occurred"}), 500
     finally:
         if cur:
