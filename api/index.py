@@ -19,7 +19,7 @@ allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 CORS(app, origins=allowed_origins)
 
 # Registering blueprints
-app.register_blueprint(user_blueprints, url_prefix="/api/user")
+app.register_blueprint(user_blueprints, url_prefix="/api/")
 
 
 # "Main" response
