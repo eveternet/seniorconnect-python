@@ -485,13 +485,14 @@ def list_applications():
     conn = None
     cur = None
     try:
-        conn = get_db_connection()
+        conn = get_db_connection()  # Assuming get_db_connection() is defined elsewhere
         cur = conn.cursor()
         cur.execute(
             """
             SELECT iga.id, u.display_name AS applicant_name, iga.name, iga.description, iga.status, iga.created_at
             FROM interest_group_applications iga
             JOIN users u ON iga.applicant_id = u.id
+            WHERE iga.status IN ('pending', 'new') -- <--- ADDED THIS LINE
             ORDER BY iga.created_at DESC
         """
         )
@@ -509,6 +510,7 @@ def list_applications():
         ]
         return jsonify({"applications": applications}), 200
     except psycopg.Error as e:
+        print(f"Database error: {e}")  # Log the actual error for debugging
         if conn:
             conn.rollback()
         return jsonify({"message": "An internal server error occurred"}), 500
