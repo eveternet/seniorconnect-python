@@ -655,3 +655,81 @@ def approve_application(application_id):
             cur.close()
         if conn:
             conn.close()
+
+
+@interest_groups.route("/application/<application_id>/reject", methods=["POST"])
+def reject_application(application_id):
+    try:
+        data = request.get_json(force=False, silent=False)
+    except Exception as e:
+        return jsonify({"error": "Invalid JSON", "details": str(e)}), 400
+
+    admin_clerk_user_id = data.get("clerk_user_id")
+    if not admin_clerk_user_id or not isinstance(admin_clerk_user_id, str):
+        return (
+            jsonify({"error": "No admin user id provided / Invalid user id type"}),
+            400,
+        )
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # 1. Get admin's UUID and check role
+        cur.execute(
+            "SELECT id, role FROM users WHERE clerk_user_id = %s",
+            (admin_clerk_user_id,),
+        )
+        admin_row = cur.fetchone()
+        if not admin_row:
+            return jsonify({"error": "Admin user does not exist"}), 404
+        admin_uuid, admin_role = admin_row
+        if admin_role != "Admin":
+            return jsonify({"error": "Not authorized"}), 403
+
+        # 2. Get application details
+        cur.execute(
+            """
+            SELECT status
+            FROM interest_group_applications
+            WHERE id = %s
+        """,
+            (application_id,),
+        )
+        app_row = cur.fetchone()
+        if not app_row:
+            return jsonify({"error": "Application not found"}), 404
+        status = app_row[0]
+        if status != "pending":
+            return jsonify({"error": "Application already processed"}), 400
+
+        # 3. Update application status to rejected
+        cur.execute(
+            """
+            UPDATE interest_group_applications
+            SET status = 'rejected', admin_id = %s, reviewed_at = NOW()
+            WHERE id = %s
+        """,
+            (admin_uuid, application_id),
+        )
+
+        conn.commit()
+        return (
+            jsonify(
+                {
+                    "message": "Application rejected",
+                    "application_id": application_id,
+                }
+            ),
+            200,
+        )
+    except psycopg.Error as e:
+        if conn:
+            conn.rollback()
+        return jsonify({"message": "An internal server error occurred"}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
