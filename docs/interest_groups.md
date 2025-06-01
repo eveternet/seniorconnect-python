@@ -165,7 +165,7 @@ Returns the Clerk user ID of the group creator.
 **POST** `/interest_groups/transfer_owner/<group_id>`
 
 **Description:**  
-Transfers group ownership to another member.
+**Note:** This endpoint is now superseded by the expanded `PATCH /interest_groups/edit/<group_id>` endpoint, which handles ownership transfer along with other editing capabilities.
 
 **Input JSON:**
 
@@ -198,16 +198,19 @@ Transfers group ownership to another member.
 **PATCH** `/interest_groups/edit/<group_id>`
 
 **Description:**  
-Allows an admin or the group creator to edit group details.
+Allows an admin or the group creator to edit group details, remove members, or transfer ownership. This is a versatile endpoint for administrative management of interest groups.
 
-**Input JSON:**
+**Input JSON:**  
+The request body must include `clerk_user_id` for authorization. Other fields are optional and can be combined.
 
 ```json
 {
-    "clerk_user_id": "user_xxx",
-    "name": "New Group Name", // optional
-    "description": "New description", // optional
-    "image_url": "https://..." // optional
+    "clerk_user_id": "user_xxx", // Required: Clerk ID of the acting user (admin or creator)
+    "name": "New Group Name", // Optional: New name for the group
+    "description": "New description", // Optional: New description for the group
+    "image_url": "https://example.com/new_image.jpg", // Optional: New image URL for the group
+    "remove_member_id": "uuid-of-member-to-remove", // Optional: UUID of the user to remove from the group
+    "new_owner_id": "uuid-of-new-owner" // Optional: UUID of the user to transfer ownership to
 }
 ```
 
@@ -220,10 +223,18 @@ Allows an admin or the group creator to edit group details.
 **Errors:**
 
 ```json
-{ "error": "User does not exist" }
-{ "error": "Group does not exist" }
-{ "error": "Not authorized" }
-{ "error": "No valid fields to update" }
+{ "error": "User does not exist" }                             // Acting user does not exist
+{ "error": "No user id provided / Invalid user id type" }     // Missing/invalid clerk_user_id
+{ "error": "Group does not exist" }                           // Group not found
+{ "error": "Not authorized to edit this group" }              // Acting user is neither admin nor creator
+{ "error": "No valid fields or actions to update" }           // No recognized parameters in the request body
+{ "error": "Invalid remove_member_id format" }                // remove_member_id is not a valid UUID string
+{ "error": "Cannot remove the group creator from the group" } // Attempt to remove the group creator
+{ "error": "User is not a member of this group" }             // Attempt to remove a non-member
+{ "error": "Invalid new_owner_id format" }                    // new_owner_id is not a valid UUID string
+{ "error": "New owner user does not exist" }                  // new_owner_id does not correspond to an existing user
+{ "error": "Only the current group creator or a site admin can transfer ownership" } // Unauthorized ownership transfer
+{ "error": "Cannot transfer ownership to the current owner" } // Attempt to transfer ownership to self
 ```
 
 ---
@@ -264,12 +275,12 @@ User submits an application to create a new interest group.
 
 ---
 
-## 10. **List All Interest Group Applications**
+## 10. **List All Interest Group Applications (Pending/New)**
 
 **GET** `/interest_groups/applications`
 
 **Description:**  
-Returns all interest group applications (for admins).
+Returns a list of interest group applications that are still awaiting action (e.g., `pending`, `new` status). This endpoint is primarily for admins.
 
 **Response:**
 

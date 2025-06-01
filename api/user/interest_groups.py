@@ -361,6 +361,10 @@ def get_creator(group_id):
             conn.close()
 
 
+import psycopg
+import uuid  # Make sure this import is present
+
+
 @interest_groups.route("/edit/<group_id>", methods=["PATCH"])
 def edit_group(group_id):
     try:
@@ -375,50 +379,166 @@ def edit_group(group_id):
     if not clerk_user_id or not isinstance(clerk_user_id, str):
         return jsonify({"error": "No user id provided / Invalid user id type"}), 400
 
-    # Only allow certain fields to be updated
-    allowed_fields = {"name", "description", "image_url"}
-    updates = {k: v for k, v in data.items() if k in allowed_fields}
-
-    if not updates:
-        return jsonify({"error": "No valid fields to update"}), 400
-
     conn = None
     cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # 1. Get user UUID and role
+        # 1. Get user UUID and role (acting admin/creator)
         cur.execute(
             "SELECT id, role FROM users WHERE clerk_user_id = %s", (clerk_user_id,)
         )
         user_row = cur.fetchone()
         if not user_row:
             return jsonify({"error": "User does not exist"}), 404
-        user_uuid, user_role = user_row
+        acting_user_uuid, acting_user_role = user_row
 
-        # 2. Get group creator
-        cur.execute("SELECT creator_id FROM interest_groups WHERE id = %s", (group_id,))
-        group_row = cur.fetchone()
-        if not group_row:
+        # 2. Get group creator_id and existing members for authorization
+        cur.execute(
+            """
+            SELECT ig.creator_id, array_agg(igm.user_id) AS current_members
+            FROM interest_groups ig
+            LEFT JOIN interest_group_members igm ON ig.id = igm.group_id
+            WHERE ig.id = %s
+            GROUP BY ig.id
+            """,
+            (group_id,),
+        )
+        group_info_row = cur.fetchone()
+
+        if not group_info_row:
             return jsonify({"error": "Group does not exist"}), 404
-        creator_uuid = group_row[0]
+        group_creator_uuid = group_info_row[0]
+        current_members = (
+            group_info_row[1]
+            if group_info_row[1] and group_info_row[1] != [None]
+            else []
+        )
 
-        # 3. Admin check: must be site admin or group creator
-        if user_role != "Admin" and user_uuid != creator_uuid:
-            return jsonify({"error": "Not authorized"}), 403
+        # 3. Authorization check: must be site admin OR group creator
+        is_site_admin = acting_user_role == "Admin"
+        is_group_creator = acting_user_uuid == group_creator_uuid
 
-        # 4. Build update query
-        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
-        values = list(updates.values()) + [group_id]
-        cur.execute(f"UPDATE interest_groups SET {set_clause} WHERE id = %s", values)
+        if not (is_site_admin or is_group_creator):
+            return jsonify({"error": "Not authorized to edit this group"}), 403
+
+        # --- Handle Group Name, Description, Image URL updates ---
+        allowed_group_fields = {"name", "description", "image_url"}
+        group_updates = {k: v for k, v in data.items() if k in allowed_group_fields}
+
+        if group_updates:
+            set_clause = ", ".join([f"{k} = %s" for k in group_updates.keys()])
+            values = list(group_updates.values()) + [group_id]
+            cur.execute(
+                f"UPDATE interest_groups SET {set_clause} WHERE id = %s", values
+            )
+
+        # --- Handle Remove Member ---
+        # Expecting `remove_member_id` as the UUID of the user to remove
+        remove_member_id = data.get("remove_member_id")
+        if remove_member_id:
+            # Convert to UUID type for comparison
+            try:
+                remove_member_uuid = uuid.UUID(remove_member_id)
+            except ValueError:
+                return jsonify({"error": "Invalid remove_member_id format"}), 400
+
+            # Only allow removal if the acting user is the group creator or site admin
+            # And the member is not the creator themselves
+            if remove_member_uuid == group_creator_uuid:
+                return (
+                    jsonify(
+                        {"error": "Cannot remove the group creator from the group"}
+                    ),
+                    400,
+                )
+
+            if remove_member_uuid in current_members:
+                cur.execute(
+                    """
+                    DELETE FROM interest_group_members
+                    WHERE group_id = %s AND user_id = %s
+                    """,
+                    (group_id, remove_member_uuid),
+                )
+            else:
+                return jsonify({"error": "User is not a member of this group"}), 404
+
+        # --- Handle Transfer Ownership ---
+        # Expecting `new_owner_id` as the UUID of the new owner
+        new_owner_id = data.get("new_owner_id")  # Changed from new_owner_clerk_id
+        if new_owner_id:
+            # Convert to UUID type for comparison
+            try:
+                new_owner_uuid = uuid.UUID(new_owner_id)  # Convert input to UUID
+            except ValueError:
+                return jsonify({"error": "Invalid new_owner_id format"}), 400
+
+            # Fetch the UUID of the prospective new owner (if needed, though already passed)
+            # You *could* do an extra check here to ensure the new_owner_uuid exists in your users table,
+            # but usually, frontend selects from existing users, so this is optional for basic functionality.
+            cur.execute("SELECT id FROM users WHERE id = %s", (new_owner_uuid,))
+            new_owner_row = cur.fetchone()
+            if not new_owner_row:
+                return jsonify({"error": "New owner user does not exist"}), 404
+
+            # Current creator must be the one initiating the transfer OR a site admin
+            if not (is_group_creator or is_site_admin):
+                return (
+                    jsonify(
+                        {
+                            "error": "Only the current group creator or a site admin can transfer ownership"
+                        }
+                    ),
+                    403,
+                )
+
+            if new_owner_uuid == group_creator_uuid:
+                return (
+                    jsonify(
+                        {"error": "Cannot transfer ownership to the current owner"}
+                    ),
+                    400,
+                )
+
+            # Ensure the new owner is a member of the group, or make them one
+            if new_owner_uuid not in current_members:
+                # Add them as a member if they aren't already
+                cur.execute(
+                    """
+                    INSERT INTO interest_group_members (group_id, user_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (group_id, user_id) DO NOTHING;
+                    """,
+                    (group_id, new_owner_uuid),
+                )
+
+            # Update the creator_id in the interest_groups table
+            cur.execute(
+                "UPDATE interest_groups SET creator_id = %s WHERE id = %s",
+                (new_owner_uuid, group_id),
+            )
+
+        # If no valid updates were provided at all
+        if (
+            not group_updates and not remove_member_id and not new_owner_id
+        ):  # Changed from new_owner_clerk_id
+            return jsonify({"error": "No valid fields or actions to update"}), 400
+
         conn.commit()
         return jsonify({"message": "Group updated successfully"}), 200
 
     except psycopg.Error as e:
+        print(f"Database error: {e}")  # Log the actual error for debugging
         if conn:
             conn.rollback()
         return jsonify({"message": "An internal server error occurred"}), 500
+    except Exception as e:
+        print(f"Server error: {e}")  # Log other potential errors
+        if conn:
+            conn.rollback()
+        return jsonify({"message": "An unexpected server error occurred"}), 500
     finally:
         if cur:
             cur.close()
